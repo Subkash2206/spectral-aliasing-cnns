@@ -1,0 +1,43 @@
+# Virtual environment
+aliasing_env/
+
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Test cache
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Results (generated outputs, not source)
+results/figures/
+results/tables/
+results/checkpoints/
+
+# Datasets (too large for version control)
+data/
+
+# Distribution / packaging
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Jupyter notebooks checkpoints
+.ipynb_checkpoints/
+
+# Editor and OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Environment variable files
+.env
+.env.*
+
+# Logs
+*.log
