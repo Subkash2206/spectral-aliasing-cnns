@@ -168,8 +168,7 @@ def test_avr_constant_is_low(constant_map):
     because every AVR number would be measuring the wrong thing.
     """
     ps = compute_power_spectrum(constant_map)
-    rp = compute_radial_profile(ps)
-    avr = compute_avr(rp, stride=2)
+    avr = compute_avr(ps, stride=2)
     assert avr < 0.05, f"Constant AVR = {avr:.4f}, expected < 0.05"
 
 
@@ -186,8 +185,7 @@ def test_avr_checkerboard_is_high(checkerboard_map):
     AVR to 0.9985. If this test fails again, that clipping bug is back.
     """
     ps = compute_power_spectrum(checkerboard_map)
-    rp = compute_radial_profile(ps)
-    avr = compute_avr(rp, stride=2)
+    avr = compute_avr(ps, stride=2)
     assert avr > 0.80, f"Checkerboard AVR = {avr:.4f}, expected > 0.80"
 
 
@@ -209,7 +207,6 @@ def test_avr_range():
     for _ in range(20):
         fm = torch.tensor(rng.standard_normal((H, W)), dtype=torch.float32)
         ps = compute_power_spectrum(fm)
-        rp = compute_radial_profile(ps)
         for stride in (1, 2, 4):
-            avr = compute_avr(rp, stride=stride)
+            avr = compute_avr(ps, stride=stride)
             assert 0.0 <= avr <= 1.0, f"AVR = {avr:.4f} out of [0,1] for stride={stride}"

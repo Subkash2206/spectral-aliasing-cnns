@@ -49,8 +49,7 @@ def avr_for_feature_map(
         AVR in [0, 1].
     """
     ps = compute_power_spectrum(feature_map)
-    rp = compute_radial_profile(ps)
-    return compute_avr(rp, stride)
+    return compute_avr(ps, stride)
 
 
 def avr_for_batch(

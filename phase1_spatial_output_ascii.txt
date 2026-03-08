@@ -1,0 +1,85 @@
+﻿============================================================
+Phase 1 ù Spectral Analysis Validation
+============================================================
+
+Input shape : torch.Size([4, 3, 64, 64])
+Stride under test : 2
+
+[AVR Results]
+  Constant image             AVR (stride=2) = 0.0000
+  Checkerboard               AVR (stride=2) = 1.0000
+
+[Validation]
+  PASS  Constant image AVR = 0.0000 < 0.05
+  PASS  Checkerboard AVR   = 1.0000 > 0.80
+
+[Saving figures]
+  Saved: C:\Users\subka\Documents\spectral-aliasing-study\results\figures\constant_power_spectrum.png
+  Saved: C:\Users\subka\Documents\spectral-aliasing-study\results\figures\checkerboard_power_spectrum.png
+  Saved: C:\Users\subka\Documents\spectral-aliasing-study\results\figures\avr_comparison.png
+
+  Three figures saved to C:\Users\subka\Documents\spectral-aliasing-study\results\figures
+
+[Step 1 ù Identify Stride Layers]
+  [Stride Layers]
+    conv1                     stride=2   type=Conv2d
+    layer2.0.conv2            stride=2   type=Conv2d
+    layer2.0.downsample.0     stride=2   type=Conv2d
+    layer3.0.conv2            stride=2   type=Conv2d
+    layer3.0.downsample.0     stride=2   type=Conv2d
+    layer4.0.conv2            stride=2   type=Conv2d
+    layer4.0.downsample.0     stride=2   type=Conv2d
+
+  Found 7 stride-2 layers.
+
+[Step 2 ù Load CIFAR-10 Image]
+  Image shape: torch.Size([1, 3, 224, 224])
+
+[Step 3 ù Register Hooks & Forward Pass]
+  [Pre-stride Feature Maps]
+    conv1                     pre_stride shape : torch.Size([1, 3, 224, 224])
+    layer2.0.conv2            pre_stride shape : torch.Size([1, 128, 56, 56])
+    layer2.0.downsample.0     pre_stride shape : torch.Size([1, 256, 56, 56])
+    layer3.0.conv2            pre_stride shape : torch.Size([1, 256, 28, 28])
+    layer3.0.downsample.0     pre_stride shape : torch.Size([1, 512, 28, 28])
+    layer4.0.conv2            pre_stride shape : torch.Size([1, 512, 14, 14])
+    layer4.0.downsample.0     pre_stride shape : torch.Size([1, 1024, 14, 14])
+
+[Step 4 ù Per-layer AVR]
+  [Per-layer AVR ù ResNet50 on CIFAR-10 image]
+    conv1                     AVR = 0.0001
+    layer2.0.conv2            AVR = 0.0031
+    layer2.0.downsample.0     AVR = 0.0002
+    layer3.0.conv2            AVR = 0.0156
+    layer3.0.downsample.0     AVR = 0.0025
+    layer4.0.conv2            AVR = 0.0525
+    layer4.0.downsample.0     AVR = 0.0142
+  Saved AVRs to C:\Users\subka\Documents\spectral-aliasing-study\results\tables\phase1_layerwise_avr.csv
+
+[Step 5 ù Spectrum Verification]
+  [Spectrum Check]
+    conv1                     DC energy > edge energy : PASS
+    layer2.0.conv2            DC energy > edge energy : PASS
+    layer2.0.downsample.0     DC energy > edge energy : PASS
+    layer3.0.conv2            DC energy > edge energy : PASS
+    layer3.0.downsample.0     DC energy > edge energy : PASS
+    layer4.0.conv2            DC energy > edge energy : PASS
+    layer4.0.downsample.0     DC energy > edge energy : PASS
+
+[Step 6 ù Fig 1: Heatmaps]
+  Saved C:\Users\subka\Documents\spectral-aliasing-study\results\figures\fig1_layerwise_power_spectra.png
+
+[Step 7 ù Fig 2: Radial Profiles]
+  Saved C:\Users\subka\Documents\spectral-aliasing-study\results\figures\fig2_radial_profiles.png
+
+[Pass Criteria Summary]
+  Constant image AVR < 0.05              : PASS
+  Checkerboard AVR > 0.80               : PASS
+  At least 4 stride-2 layers detected   : PASS
+  All pre-stride hooks fired             : PASS
+  Power spectrum heatmaps saved (Fig 1) : PASS
+  Radial profiles saved (Fig 2)         : PASS
+
+============================================================
+Phase 1 COMPLETE ù all criteria met.
+============================================================

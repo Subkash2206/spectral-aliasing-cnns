@@ -138,3 +138,23 @@ def build_layer_stride_map(model: nn.Module) -> Dict[str, int]:
         Maps each strided Conv2d layer name to its stride value.
     """
     return {name: stride for name, _mod, stride in find_strided_layers(model)}
+
+
+def load_resnet50(pretrained: bool = True) -> nn.Module:
+    """
+    Convenience alias for get_model('resnet50') with a clear name.
+    Having a named function makes experiment scripts more readable --
+    load_resnet50() is unambiguous, whereas get_model('resnet50') requires
+    the reader to know the string matches a timm identifier.
+
+    Parameters
+    pretrained : bool
+        True to load ImageNet weights (default). False for random init,
+        which is useful when you just want to check layer structure quickly
+        without waiting for a download.
+
+    Returns
+    nn.Module
+        ResNet50 in eval mode on CPU.
+    """
+    return get_model("resnet50", pretrained=pretrained)

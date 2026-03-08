@@ -40,6 +40,12 @@ class FeatureExtractor:
     layer_names : list[str]
         Dot-separated module paths as produced by dict(model.named_modules()).
         For ResNet50 these look like 'layer1', 'layer2.0.conv1', etc.
+    capture_input : bool
+        If False (default), the hook saves the *output* of each named layer.
+        If True, the hook saves the *input* tensor (the first element of the
+        _input tuple). This is the "pre-stride" mode: we are hooking a stride-2
+        conv and capturing what it sees *before* it subsamples -- that is the
+        feature map we want to measure spectral content on.
 
     Raises
     KeyError
@@ -52,9 +58,15 @@ class FeatureExtractor:
     >>> outputs = extractor(x)  # dict[str, Tensor]
     """
 
-    def __init__(self, model: nn.Module, layer_names: List[str]) -> None:
+    def __init__(
+        self,
+        model: nn.Module,
+        layer_names: List[str],
+        capture_input: bool = False,
+    ) -> None:
         self.model = model
         self.layer_names = layer_names
+        self.capture_input = capture_input
         self._features: Dict[str, torch.Tensor] = {}
         self._handles: List[torch.utils.hooks.RemovableHook] = []
 
@@ -76,12 +88,22 @@ class FeatureExtractor:
         name as an argument passed at call time I would hit the classic
         Python late-binding problem and all hooks would record under the
         same name. The closure freezes the value of name at registration.
+
+        When capture_input=True we grab _input[0] -- the spatial tensor
+        coming into the conv before any stride is applied. That is the
+        pre-stride feature map we actually want to analyse spectrally.
         """
 
         def hook(_module: nn.Module, _input, output: torch.Tensor) -> None:
             # detach() so the tensor is not part of the computation graph,
             # cpu() so we are not holding GPU memory after the forward pass.
-            self._features[name] = output.detach().cpu()
+            if self.capture_input:
+                # _input is a tuple of the module's input tensors.
+                # For Conv2d the first (and usually only) element is the
+                # spatial feature map.
+                self._features[name] = _input[0].detach().cpu()
+            else:
+                self._features[name] = output.detach().cpu()
 
         return hook
 
@@ -106,6 +128,15 @@ class FeatureExtractor:
         with torch.no_grad():
             self.model(x)
         return dict(self._features)
+
+    @property
+    def pre_stride(self) -> Dict[str, torch.Tensor]:
+        """
+        Alias for _features when the extractor was created with
+        capture_input=True. Having the name 'pre_stride' makes experiment
+        code self-documenting -- it is obvious what these tensors represent.
+        """
+        return self._features
 
     def remove_hooks(self) -> None:
         """
@@ -142,3 +173,23 @@ def register_hooks(
     FeatureExtractor
     """
     return FeatureExtractor(model, layer_names)
+
+
+def get_stride_layers(model: nn.Module):
+    """
+    Returns every Conv2d layer in the model that has stride > 1, as a list
+    of (name, module, stride) tuples. This is a thin wrapper around
+    find_strided_layers() in models.py, exposed here because experiment
+    scripts naturally import from hooks -- they are dealing with 'where do
+    I put hooks' and 'what are the hook points', which conceptually live
+    in the same place.
+
+    Parameters
+    model : nn.Module
+
+    Returns
+    list of (str, nn.Module, int)
+        Same format as find_strided_layers().
+    """
+    from src.models import find_strided_layers
+    return find_strided_layers(model)

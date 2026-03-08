@@ -39,9 +39,10 @@ def compute_power_spectrum(feature_map: torch.Tensor) -> np.ndarray:
 
     Parameters
     feature_map : torch.Tensor
-        A single 2-D spatial activation, shape (H, W). One channel of one
-        sample. Does not need to be normalised -- we only care about the
-        relative distribution of power across frequencies.
+        Either a single 2-D spatial activation (H, W), or a full batch
+        (B, C, H, W). If a batch is provided, the function computes the
+        power spectrum for every channel of every sample and returns the
+        mean power spectrum. Does not need to be normalised.
 
     Returns
     numpy.ndarray, shape (H, W), dtype float64
@@ -55,17 +56,27 @@ def compute_power_spectrum(feature_map: torch.Tensor) -> np.ndarray:
     coarse AVR metric. Keeping it un-windowed also makes the checkerboard
     sanity check easy to interpret.
     """
-    if feature_map.dim() != 2:
+    if feature_map.dim() not in (2, 4):
         raise ValueError(
-            f"Expected a 2-D tensor (H, W), got shape {tuple(feature_map.shape)}"
+            f"Expected a 2-D (H,W) or 4-D (B,C,H,W) tensor, got shape {tuple(feature_map.shape)}"
         )
 
-    arr = feature_map.float().numpy()
-    fft = np.fft.fft2(arr)
+    # Convert to NumPy and float64 immediately to avoid precision loss later.
+    arr = feature_map.detach().cpu().numpy().astype(np.float64)
+    
+    # Compute 2D FFT over the last two axes (spatial dimensions).
+    fft = np.fft.fft2(arr, axes=(-2, -1))
+    
     # Without fftshift, DC is at the corner -- the radius map would be totally wrong.
-    fft_shifted = np.fft.fftshift(fft)
+    fft_shifted = np.fft.fftshift(fft, axes=(-2, -1))
+    
     # Square the magnitude to get power (real, non-negative) instead of amplitude.
     power = np.abs(fft_shifted) ** 2
+    
+    # If it was a batch, average out the non-spatial dimensions
+    if power.ndim == 4:
+        power = power.mean(axis=(0, 1))
+        
     return power
 
 
@@ -131,72 +142,83 @@ def compute_radial_profile(power_spectrum: np.ndarray) -> np.ndarray:
 
 
 def compute_avr(
-    radial_profile: np.ndarray,
+    power_spectrum: np.ndarray,
     stride: int,
     epsilon: float = 1e-10,
 ) -> float:
     """
-    AVR (Aliasing-Vulnerability Ratio) is the core metric of this project.
-    It answers: what fraction of a feature map's power would get aliased if
-    the next layer downsamples with stride s?
+    Computes AVR directly on the 2D power spectrum, exactly as specified
+    in the research bible:
 
-    Nyquist says the highest frequency you can represent after stride-s
-    downsampling is f_nyquist = 0.5 / s (per axis, where 0.5 = 1 cycle per
-    2 pixels = the Nyquist limit of the original grid). Anything above that
-    gets folded back and corrupts lower frequencies.
+        r_norm(u,v) = sqrt(((u - cy)/cy)^2 + ((v - cx)/cx)^2)
+        AVR = sum of P(u,v) where r_norm > 1/stride, divided by total power
 
-    The tricky bit is converting that frequency cutoff to a pixel radius in
-    our radial profile. The profile goes from r=0 (DC) to r=R-1 (the corner
-    of the FFT array). The corner sits at the 2-D Nyquist corner, which has
-    per-axis frequency 0.5 but a diagonal frequency of sqrt(0.5^2 + 0.5^2)
-    = 0.5*sqrt(2). So:
+    r_norm is normalized so that r_norm=1 at the per-axis Nyquist edge
+    (the halfway point along each axis of the frequency grid). This means:
+      - DC at center has r_norm = 0
+      - Per-axis Nyquist edge has r_norm = 1
+      - Diagonal corners have r_norm = sqrt(2)
 
-        corner radius R-1  <->  per-axis frequency 0.5
-        nyquist radius     <->  per-axis frequency 0.5/stride
+    For stride=2, the cutoff is r_norm=0.5. Anything above that aliases.
 
-    Dividing: nyquist_idx = (R-1) / (stride * sqrt(2))
-
-    Everything at radius >= nyquist_idx is above the Nyquist cutoff.
-    AVR = sum(profile[nyquist_idx:]) / sum(profile).
+    This formulation avoids the sqrt(2) error in the radial profile approach,
+    where using the diagonal as the normalization reference placed the cutoff
+    1.41x too far out and caused AVR to be underestimated.
 
     Parameters
-    radial_profile : numpy.ndarray, shape (R,)
-        Output of compute_radial_profile.
+    power_spectrum : np.ndarray, shape (H, W)
+        Output of compute_power_spectrum -- DC at center, all non-negative.
     stride : int
-        The stride of the convolution that comes *after* this feature map.
-        Must be >= 1. stride=1 means no downsampling (Nyquist = 0.5, AVR
-        will be high only if the signal has near-Nyquist content).
-    epsilon : float, optional
-        Added to the denominator so we never divide by zero on a blank
-        feature map (it does happen with zero-initialised networks).
+        Downsampling factor of the operation following this feature map.
+    epsilon : float
+        Added to denominator to avoid divide-by-zero on blank feature maps.
 
     Returns
-    float
-        AVR in [0, 1]. 0 means all power is DC or sub-Nyquist (great).
-        1 means all power is above the Nyquist cutoff (maximally vulnerable).
-
-    Raises
-    ValueError
-        If stride < 1 or the profile is empty. Both would give nonsense
-        results and I want to catch them explicitly rather than get a
-        confusing divide-by-zero or silent wrong answer downstream.
+    float in [0, 1]. 0 = fully bandlimited. 1 = all energy above Nyquist.
     """
     if stride < 1:
         raise ValueError(f"stride must be >= 1, got {stride}")
-    if radial_profile.size == 0:
-        raise ValueError("radial_profile must not be empty")
 
-    R = len(radial_profile)
-    # Map per-axis Nyquist to a pixel radius index.
-    # (R-1) is the diagonal corner = frequency sqrt(2)/2 along the diagonal.
-    # The per-axis Nyquist (0.5/stride) corresponds to pixel radius:
-    #   nyquist_r = (R-1) / (stride * sqrt(2))
-    nyquist_idx = int((R - 1) / (stride * np.sqrt(2)))
-    # Clamp to valid range just in case of floating-point weirdness.
-    nyquist_idx = max(0, min(nyquist_idx, R - 1))
+    H, W = power_spectrum.shape
+    cy, cx = H // 2, W // 2
 
-    total_power = float(radial_profile.sum()) + epsilon
-    aliased_power = float(radial_profile[nyquist_idx:].sum())
+    y_idx, x_idx = np.indices((H, W))
 
-    # AVR = fraction of power sitting above the Nyquist cutoff.
+    # Normalize so r_norm=1 at the per-axis Nyquist edge.
+    # Dividing by cy and cx (the half-dimensions) achieves this.
+    # The diagonal corners end up at r_norm = sqrt(2), which is above
+    # any reasonable stride cutoff and correctly counted as aliased.
+    r_norm = np.sqrt(((y_idx - cy) / cy) ** 2 + ((x_idx - cx) / cx) ** 2)
+
+    # Per the bible: cutoff is at r_norm = 1/stride.
+    r_cutoff = 1.0 / stride
+
+    total_power = float(power_spectrum.sum()) + epsilon
+    aliased_power = float(power_spectrum[r_norm > r_cutoff].sum())
+
     return aliased_power / total_power
+
+
+def log_power_spectrum(power_spectrum: np.ndarray) -> np.ndarray:
+    """
+    Applies a log(1 + x) compression to the power spectrum before plotting.
+
+    We need this because the DC component of a real image is typically
+    orders of magnitude larger than the high-frequency components. Without
+    compression, a heatmap of the raw power spectrum would show one bright
+    dot at the centre and everything else as pitch black -- completely
+    uninformative. log1p brings the dynamic range to something the eye can
+    actually distinguish.
+
+    log1p (instead of log) avoids the undefined log(0) for zero-energy bins.
+
+    Parameters
+    power_spectrum : numpy.ndarray, shape (H, W)
+        Output of compute_power_spectrum.
+
+    Returns
+    numpy.ndarray, shape (H, W), dtype float64
+        Log-compressed power, all values >= 0.
+    """
+    return np.log1p(power_spectrum)
+
