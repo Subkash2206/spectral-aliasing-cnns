@@ -13,8 +13,6 @@ __pycache__/
 htmlcov/
 
 # Results (generated outputs, not source)
-results/figures/
-results/tables/
 results/checkpoints/
 
 # Datasets (too large for version control)
