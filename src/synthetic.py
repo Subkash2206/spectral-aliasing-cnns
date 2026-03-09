@@ -112,3 +112,55 @@ def make_checkerboard_image(
     # which matters if the caller modifies it in-place later.
     board = board.unsqueeze(0).unsqueeze(0)
     return board.expand(batch_size, channels, height, width).clone()
+
+
+def make_sinusoidal_image(
+    freq: float,
+    height: int = 224,
+    width: int = 224,
+    batch_size: int = 1,
+    channels: int = 3,
+) -> torch.Tensor:
+    """
+    Returns a batch of sinusoidal images at a specified normalized frequency.
+
+    Pixel values follow sin(2π * freq * x) where x runs from 0 to 1 across
+    the image width. freq=0.0 is a constant (DC only). freq=0.5 is exactly
+    the Nyquist limit for stride-2 -- the highest frequency that can survive
+    a stride-2 operation without aliasing. freq=1.0 is the absolute Nyquist
+    of the pixel grid itself.
+
+    We use this in Phase 2a to sweep across frequencies and verify that AVR
+    rises sharply when freq crosses 0.5 -- if it does not, the AVR formula
+    is not correctly identifying aliased energy.
+
+    Parameters
+    freq : float
+        Normalized spatial frequency in [0, 1]. 0.5 = Nyquist for stride-2.
+    height, width : int
+        Spatial dimensions. Default 224 to match ResNet50 input size.
+    batch_size : int
+        Number of copies in the batch.
+    channels : int
+        Number of channels (same sinusoid on all channels).
+
+    Returns
+    torch.Tensor, shape (batch_size, channels, height, width)
+        Float tensor with values in [-1, 1].
+    """
+    # x runs from 0 to 1 across the width dimension.
+    # The sinusoid varies horizontally -- vertical columns are constant.
+    # This makes the frequency content easy to verify: a horizontal
+    # sinusoid at freq f should produce a spike at normalized frequency f
+    # in the power spectrum.
+    x = torch.linspace(0, 1, width)
+    # If freq=1.0 is the Nyquist limit, that is width / 2 cycles across the image.
+    cycles = (width / 2.0) * freq
+    signal = torch.sin(2 * torch.pi * cycles * x)  # shape (W,)
+
+    # Broadcast to (H, W) by repeating the same row for every height pixel.
+    img = signal.unsqueeze(0).expand(height, width)  # (H, W)
+
+    # Add batch and channel dimensions.
+    img = img.unsqueeze(0).unsqueeze(0)  # (1, 1, H, W)
+    return img.expand(batch_size, channels, height, width).clone()
