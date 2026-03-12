@@ -184,3 +184,46 @@ def get_cifar10_loader(
     subset = torch.utils.data.Subset(dataset, list(range(n_images)))
     return DataLoader(subset, batch_size=batch_size, shuffle=False, num_workers=0)
 
+
+def get_stl10_loader(
+    n_images: int = 1000,
+    batch_size: int = 32,
+    image_size: int = 224,
+    data_root: str = "data",
+) -> DataLoader:
+    """
+    Returns a DataLoader over the first n_images of the STL10 test set,
+    resized to image_size x image_size and normalised with ImageNet stats.
+
+    STL10 images are 96x96 -- far less destructive to upsample to 224
+    than CIFAR-10's 32x32. Bilinear upsampling from 96 to 224 preserves
+    genuine mid-to-high frequency content that CIFAR-10 upsampling destroys.
+    This makes STL10 a much better proxy for ImageNet for spectral analysis.
+
+    Parameters
+    n_images : int
+        How many images to use from the test split (13,000 available).
+    batch_size : int
+        Batch size for the DataLoader.
+    image_size : int
+        Target resolution after resize. Default 224.
+    data_root : str
+        Directory where STL10 will be downloaded (~2.5GB).
+
+    Returns
+    DataLoader
+    """
+    transform = T.Compose([
+        T.Resize(image_size),
+        T.ToTensor(),
+        T.Normalize(IMAGENET_MEAN, IMAGENET_STD),
+    ])
+    dataset = dsets.STL10(
+        root=data_root,
+        split='test',
+        download=True,
+        transform=transform,
+    )
+    subset = torch.utils.data.Subset(dataset, list(range(n_images)))
+    return DataLoader(subset, batch_size=batch_size, shuffle=False, num_workers=0)
+

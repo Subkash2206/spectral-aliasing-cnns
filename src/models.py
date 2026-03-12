@@ -55,7 +55,7 @@ def get_model(
     return model
 
 
-def get_antialiased_model(name: str = "resnet50", pretrained: bool = False) -> nn.Module:
+def get_antialiased_model(name: str = "resnet50", pretrained: bool = True) -> nn.Module:
     """
     Loads the BlurPool variant of a ResNet from the antialiased_cnns package.
     The idea behind anti-aliased CNNs is to insert a learnable low-pass filter

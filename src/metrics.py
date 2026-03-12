@@ -132,3 +132,67 @@ def avr_per_layer(
             )
         results[name] = avr_for_batch(feat, layer_strides[name])
     return results
+
+def compute_sis(
+    model: torch.nn.Module,
+    images: torch.Tensor,
+    device: torch.device,
+) -> np.ndarray:
+    """
+    Computes per-image Shift Instability Score (SIS) for a batch.
+
+    SIS measures how much the model's output probability vector changes
+    when the input is shifted by exactly 1 pixel in each of 4 directions.
+    An ideal shift-invariant classifier would have SIS=0 -- the output
+    would not change at all. Real CNNs have SIS > 0 because strided
+    operations are not shift-equivariant when the input has not been
+    properly bandlimited before downsampling.
+
+    SIS per image = mean over 4 directions of
+                   (1 - cosine_similarity(p(x), p(shift(x))))
+
+    where p(x) = softmax(model(x)). We use torch.roll for shifting
+    because it wraps circularly at boundaries -- no padding artifacts
+    that would inflate SIS independently of aliasing.
+
+    Parameters
+    model : nn.Module
+        Pretrained classification model in eval mode on device.
+    images : torch.Tensor, shape (B, C, H, W)
+        Input batch, already preprocessed and normalized.
+    device : torch.device
+        Device to run inference on.
+
+    Returns
+    np.ndarray, shape (B,)
+        Per-image SIS values. Take .mean() for batch-level SIS.
+    """
+    import torch.nn.functional as F
+
+    model.eval()
+    images = images.to(device)
+
+    def shift(x: torch.Tensor, direction: str) -> torch.Tensor:
+        if direction == 'up':
+            return torch.roll(x, shifts=-1, dims=2)
+        elif direction == 'down':
+            return torch.roll(x, shifts=1, dims=2)
+        elif direction == 'left':
+            return torch.roll(x, shifts=-1, dims=3)
+        elif direction == 'right':
+            return torch.roll(x, shifts=1, dims=3)
+
+    directions = ['up', 'down', 'left', 'right']
+
+    with torch.no_grad():
+        p_orig = torch.softmax(model(images), dim=-1)  # (B, num_classes)
+
+        sis_per_direction = []
+        for d in directions:
+            x_shifted = shift(images, d)
+            p_shifted = torch.softmax(model(x_shifted), dim=-1)
+            cos_sim = F.cosine_similarity(p_orig, p_shifted, dim=-1)  # (B,)
+            sis_per_direction.append((1.0 - cos_sim).cpu().numpy())
+
+    # Stack to (4, B) then mean over directions -> (B,)
+    return np.mean(np.stack(sis_per_direction, axis=0), axis=0)
