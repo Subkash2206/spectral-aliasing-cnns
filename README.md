@@ -1,3 +1,30 @@
+<!-- ===================== HERO BANNER (place ABOVE the README title) ===================== -->
+
+<p align="center">
+  <img src="results/figures/fig6_aliasing_folding.png" width="50%">
+</p>
+
+<p align="center">
+  <b>Measuring Spectral Aliasing in Strided CNNs</b><br>
+  Quantifying Nyquist violations in CNN feature maps and their effect on prediction stability
+</p>
+
+<p align="center">
+  <img src="results/figures/fig4_avr_vs_frequency.png" width="30%">
+  <img src="results/figures/fig12_sis_distributions.png" width="30%">
+  <img src="results/figures/fig14_tradeoff.png" width="30%">
+</p>
+
+<p align="center">
+  Spectral analysis reveals aliasing introduced by strided convolutions.<br>
+  BlurPool reduces prediction instability under pixel shifts by <b>39.8%</b>.
+</p>
+
+<br>
+
+<!-- ===================== END HERO BANNER ===================== -->
+
+
 # Measuring Spectral Aliasing in Strided CNNs: From Nyquist Violations to Prediction Instability
 
 <div align="center">
@@ -17,6 +44,59 @@ Advisor: Dr. Saroj K. Meher, ISI Bangalore
 </div>
 
 ---
+
+---
+
+# TL;DR
+
+CNNs perform strided downsampling **without enforcing Nyquist filtering**, causing **spectral aliasing** that can make predictions unstable under small spatial shifts.
+
+We introduce two metrics:
+
+• **AVR (Alias Violation Ratio)** — measures how much feature-map energy violates Nyquist before a stride operation  
+• **SIS (Shift Instability Score)** — measures prediction instability under 1-pixel image shifts
+
+Across **1000 STL10 images**, BlurPool reduces shift instability by **39.8%**, confirming that aliasing contributes to prediction instability.
+
+<p align="center">
+<img src="results/figures/fig14_tradeoff.png" width="650">
+</p>
+
+<p align="center">
+<b>BlurPool reduces shift instability (SIS) by 39.8% at a cost of 18.9% more inference time.</b>
+</p>
+
+
+<p align="center">
+<img src="results/figures/fig1_layerwise_power_spectra.png" width="800">
+</p>
+
+<p align="center">
+<b>Power spectra of feature maps across stride layers. High-frequency energy above the Nyquist cutoff indicates potential aliasing.</b>
+</p>
+
+
+<p align="center">
+<img src="results/figures/fig4_avr_vs_frequency.png" width="650">
+</p>
+
+<p align="center">
+<b>AVR behaves exactly as sampling theory predicts: near-zero below Nyquist (0.5) and near-one above.</b>
+</p>
+
+
+<p align="center">
+<img src="results/figures/fig12_sis_distributions.png" width="650">
+</p>
+
+<p align="center">
+<b>Distribution of prediction instability (SIS) across 1000 STL10 images. BlurPool shifts the distribution toward lower instability.</b>
+</p>
+
+---
+> **Key finding:** Spectral aliasing in CNN feature maps correlates with prediction instability under pixel shifts, and BlurPool reduces this instability by **39.8%**.
+---
+
 
 ## Table of Contents
 
@@ -184,6 +264,11 @@ natural images fall in the 0.01–0.05 range.
 
 ## Key Results
 
+<p align="center">
+<img src="results/figures/fig14_tradeoff.png" width="600">
+</p>
+
+
 ### Primary Finding: BlurPool Reduces Shift Instability by 39.8%
 
 | Metric | ResNet50 | BlurPool | Delta |
@@ -287,6 +372,7 @@ compute_sis()
     ▼
 SIS ∈ [0, 1]
 ```
+
 
 
 ### BlurPool Architecture and Hook Points
@@ -507,6 +593,24 @@ which subsequent phases may load.
 | Fig 2 | `fig2_radial_profiles.png` | Radial energy profiles (1D energy vs normalized frequency) for each stride layer. Red dashed Nyquist line at 0.5. Shows how energy distribution shifts across network depth. |
 | Fig 3 | `avr_comparison.png` | AVR sanity check bar chart. Checkerboard input: AVR=1.000 (all energy above Nyquist). Constant input: AVR=0.000 (all energy at DC). Validates the pipeline. |
 
+<p align="center">
+<img src="results/figures/fig1_layerwise_power_spectra.png" width="700">
+</p>
+
+<p align="center">
+<img src="results/figures/fig2_radial_profiles.png" width="700">
+</p>
+
+<p align="center">
+<img src="results/figures/avr_comparison.png" width="500">
+</p>
+
+<p align="center">
+<img src="results/figures/checkerboard_power_spectrum.png" width="400">
+<img src="results/figures/constant_power_spectrum.png" width="400">
+</p>
+
+
 ### Phase 2 — Synthetic Experiments
 
 | Figure | Filename | What it shows |
@@ -514,6 +618,20 @@ which subsequent phases may load.
 | Fig 4 | `fig4_avr_vs_frequency.png` | AVR vs normalized input frequency for ResNet50 conv1. Sharp step function — near-zero below 0.5, near-one above. Ground truth validation of the metric. |
 | Fig 5 | `fig5_layerwise_avr_comparison.png` | Layer-wise AVR for ResNet50 vs BlurPool on checkerboard input. BlurPool consistently lower at downstream layers. |
 | Fig 6 | `fig6_aliasing_folding.png` | Side-by-side pre-stride and post-stride 2D power spectra at conv1. High-frequency energy visible pre-stride, redistributed post-stride. |
+
+<p align="center">
+<img src="results/figures/fig4_avr_vs_frequency.png" width="650">
+</p>
+
+<p align="center">
+<img src="results/figures/fig5_layerwise_avr_comparison.png" width="700">
+</p>
+
+<p align="center">
+<img src="results/figures/fig6_aliasing_folding.png" width="900">
+</p>
+
+
 
 ### Phase 3 — Natural Image Profiling
 
@@ -523,6 +641,20 @@ which subsequent phases may load.
 | Fig 8 | `fig8_avr_distributions.png` | Violin plots per layer showing full AVR distribution for both models. conv1 p=1.000 (identical distributions), all other layers p<0.001. |
 | Fig 9 | `fig9_radial_profiles_natural.png` | Radial energy profiles for ResNet50 on a single STL10 image. Energy concentrated near DC, falling before Nyquist line, with more mid-frequency content at deeper layers. |
 
+<p align="center">
+<img src="results/figures/fig7_layerwise_mean_avr.png" width="700">
+</p>
+
+<p align="center">
+<img src="results/figures/fig8_avr_distributions.png" width="900">
+</p>
+
+<p align="center">
+<img src="results/figures/fig9_radial_profiles_natural.png" width="700">
+</p>
+
+
+
 ### Phase 4 — Shift Sensitivity Correlation
 
 | Figure | Filename | What it shows |
@@ -531,6 +663,20 @@ which subsequent phases may load.
 | Fig 11 | `fig11_correlation_comparison.png` | Grouped bar chart: Pearson r per layer for ResNet50 (blue) vs BlurPool (orange). Reference lines at r=0 and r=0.5. ResNet50 consistently positive. |
 | Fig 12 | `fig12_sis_distributions.png` | Overlapping histograms of SIS values for both models. BlurPool distribution shifted left (lower SIS). ResNet50 mean=0.0229, BlurPool mean=0.0138. |
 
+<p align="center">
+<img src="results/figures/fig10_avr_sis_scatter.png" width="900">
+</p>
+
+<p align="center">
+<img src="results/figures/fig11_correlation_comparison.png" width="700">
+</p>
+
+<p align="center">
+<img src="results/figures/fig12_sis_distributions.png" width="700">
+</p>
+
+
+
 ### Phase 5 — Intervention Analysis
 
 | Figure | Filename | What it shows |
@@ -538,6 +684,20 @@ which subsequent phases may load.
 | Fig 13 | `fig13_avr_intervention.png` | Layer-wise AVR grouped bar chart loaded from Phase 3 CSV. Summary view of the spectral intervention across all layers. |
 | Fig 14 | `fig14_tradeoff.png` | Scatter plot with 2 points: ResNet50 and BlurPool. x=mean SIS, y=inference time. Annotation box: SIS -39.8%, Time +18.9%, Agreement 65.4%. |
 | Fig 15 | `fig15_radial_overlay.png` | 7 subplots with ResNet50 (blue) and BlurPool (orange) radial profiles overlaid. conv1 lines overlap perfectly. Deep layers show spectral separation at mid-frequencies. |
+
+<p align="center">
+<img src="results/figures/fig13_avr_intervention.png" width="700">
+</p>
+
+<p align="center">
+<img src="results/figures/fig14_tradeoff.png" width="600">
+</p>
+
+<p align="center">
+<img src="results/figures/fig15_radial_overlay.png" width="900">
+</p>
+
+
 
 ---
 
