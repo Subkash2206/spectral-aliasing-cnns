@@ -105,7 +105,6 @@ Across **1000 STL10 images**, BlurPool reduces shift instability by **39.8%**, c
 - [Central Hypothesis](#central-hypothesis)
 - [The Two Metrics](#the-two-metrics)
 - [Key Results](#key-results)
-- [Methodology](#methodology)
 - [Project Structure](#project-structure)
 - [Reproducing Results](#reproducing-results)
 - [Figures](#figures)
@@ -148,8 +147,8 @@ correlation analysis, and intervention quantification.
 ### Why does aliasing matter in CNNs?
 
 When a CNN applies a stride-2 convolution, it discards every other spatial
-sample. Classical signal processing theory — established by Nyquist in 1928
-and formalized by Shannon in 1949 — states that this operation is only
+sample. Classical signal processing theory, established by Nyquist in 1928
+and formalized by Shannon in 1949 states that this operation is only
 lossless if the signal contains no energy above the new Nyquist frequency
 (π/2 for stride-2). If it does, those high-frequency components do not
 disappear. They fold back into the lower-frequency range and appear as
@@ -160,7 +159,7 @@ representations to oscillate with small spatial shifts. Moving an image by
 one pixel changes which spatial samples are selected by the stride operation,
 which changes the aliased content, which changes the feature map values, which
 propagates to the output prediction. The result is a network that can change
-its predicted class when an image is shifted by a single pixel — a failure
+its predicted class when an image is shifted by a single pixel, a failure
 mode that would be considered catastrophic in any classical signal processing
 system.
 
@@ -190,7 +189,7 @@ layers compared to standard ResNet50, confirming the blur filter attenuates
 high-frequency content before downsampling as intended.
 
 **Component 2 (behavioral):** Per-image AVR at a given layer positively
-correlates with per-image SIS — images with more aliased feature maps produce
+correlates with per-image SIS. Images with more aliased feature maps produce
 more unstable predictions under spatial shifts.
 
 ---
@@ -203,28 +202,34 @@ AVR measures what fraction of a feature map's spectral energy is in frequencies
 that should be zero before a stride-s downsampling operation, according to the
 Nyquist-Shannon theorem.
 
-**Mathematical definition:**
+**Mathematical definition**
 
 ```
 For feature map F of shape [C, H, W]:
 
-P_c(u,v) = |FFT2(F_c(u,v))|² (power spectrum per channel)
+P_c(u, v) = |FFT2(F_c(u, v))|²
+    Power spectrum of channel c
 
-P(u,v) = (1/C) Σ_c P_c(u,v) (mean over channels, after fftshift)
+P(u, v) = (1 / C) ∑_c P_c(u, v)
+    Mean power spectrum across channels (after fftshift)
 
-r_norm(u,v) = sqrt( ((u - H/2) / (H/2))² + ((v - W/2) / (W/2))² )
+r_norm(u, v) = √[ ((u − H/2)/(H/2))² + ((v − W/2)/(W/2))² ]
 
-where r_norm=1 at per-axis Nyquist, r_norm=√2 at diagonal corners
+    r_norm = 1  → per-axis Nyquist frequency
+    r_norm = √2 → diagonal corners of the spectrum
 
-r_cutoff = 1 / stride (Nyquist cutoff for stride-s operation)
+r_cutoff = 1 / stride
+    Nyquist cutoff for stride-s downsampling
 
-AVR = Σ_{r_norm > r_cutoff} P(u,v) / Σ_{u,v} P(u,v)
+AVR =  ( ∑_{r_norm > r_cutoff} P(u, v) ) 
+       ----------------------------------
+           ( ∑_{u,v} P(u, v) )
 ```
 
 
-**Interpretation:** AVR=0.30 means 30% of the feature map's spectral energy
+**Interpretation:** AVR = 0.30 means 30% of the feature map's spectral energy
 is in frequencies that classical sampling theory says should not exist before
-this stride operation. AVR=0.0 means perfectly bandlimited. AVR=1.0 means all
+this stride operation. AVR = 0.0 means perfectly bandlimited. AVR = 1.0 means all
 energy is above the cutoff.
 
 **Key design choice:** We use the 2D power spectrum formulation with per-axis
@@ -255,8 +260,8 @@ We use circular shifts (torch.roll) rather than zero-padding to avoid
 introducing artificial edge artifacts that would inflate SIS independently
 of aliasing.
 
-**Interpretation:** SIS=0.0 means the model's predictions are perfectly
-invariant to 1-pixel spatial shifts. SIS=0.5 would mean the output probability
+**Interpretation:** SIS = 0.0 means the model's predictions are perfectly
+invariant to 1-pixel spatial shifts. SIS = 0.5 would mean the output probability
 vector changes dramatically. In practice, values for pretrained ResNet50 on
 natural images fall in the 0.01–0.05 range.
 
@@ -315,7 +320,7 @@ natural images fall in the 0.01–0.05 range.
 
 Correlations are positive, consistent in direction across 6/7 layers, and
 statistically significant at 4/7 layers. R² values below 0.015 indicate
-the relationship is real but nonlinear — consistent with 50+ layers of
+the relationship is real but nonlinear, consistent with 50+ layers of
 nonlinear processing between stride layers and the output softmax.
 
 ### Spectral Validation (Phase 2 Frequency Sweep)
@@ -377,11 +382,11 @@ SIS ∈ [0, 1]
 
 ### BlurPool Architecture and Hook Points
 
-Standard ResNet50 Bottleneck:conv1 (1×1) → BN → ReLU
+Standard ResNet50 Bottleneck:  conv1 (1×1) → BN → ReLU
 conv2 (3×3, stride=2) → BN → ReLU     ← hook here (pre-stride)
 conv3 (1×1) → BN
 
-BlurPool ResNet50 Bottleneck (Zhang 2019):conv1 (1×1) → BN → ReLU
+BlurPool ResNet50 Bottleneck (Zhang 2019):  conv1 (1×1) → BN → ReLU
 conv2 (3×3, stride=1) → BN → ReLU
 conv3[0]: BlurPool (stride=2)          ← hook here (pre-blur = pre-downsampling)
 conv3[1]: Conv2d (1×1) → BN
@@ -398,7 +403,7 @@ Confirmed hook point correspondence:
 | `layer4.0.conv2` | `layer4.0.conv3.0` | BlurPool module |
 | `layer4.0.downsample.0` | `layer4.0.downsample.0` | BlurPool module |
 
-Hook correspondence verified by t-test: conv1 p=1.000, ResNet50 AVR=BlurPool
+Hook correspondence verified by t-test: conv1 p = 1.000, ResNet50 AVR=BlurPool
 AVR=0.0036 exactly, confirming both models see the identical raw image at
 this layer.
 
@@ -406,13 +411,13 @@ this layer.
 
 Early phases used CIFAR-10 (32×32 upsampled to 224×224). Bilinear upsampling
 from 32 to 224 is a 7× spatial scaling that destroys almost all genuine
-high-frequency content — the interpolation acts as a strong low-pass filter.
+high-frequency content, essentially the interpolation acts as a strong low-pass filter.
 The resulting images have AVR values suppressed to near-zero, making spectral
 analysis unreliable.
 
 STL10 (96×96 upsampled to 224×224) is a 2.3× scaling that preserves
 substantially more genuine spectral content. Layer AVR values on STL10
-reach 0.35–0.41 at deep layers, compared to 0.15–0.32 on CIFAR-10 — a
+reach 0.35–0.41 at deep layers, compared to 0.15–0.32 on CIFAR-10 which is a
 meaningful difference that makes the spectral structure analyzable.
 
 ImageNet validation set (224×224, no upsampling) would be ideal and is
@@ -709,8 +714,8 @@ which subsequent phases may load.
 physically meaningful outputs before running any scientific experiments.
 
 **What we did:** Registered forward hooks on all 7 stride-2 layers of a
-pretrained ResNet50. Passed three types of inputs — a natural CIFAR-10 image,
-a pixel-grid checkerboard, and a constant image — and computed power spectra
+pretrained ResNet50. Passed three types of inputs: a natural CIFAR-10 image,
+a pixel-grid checkerboard, and a constant image. A computed power spectra
 and AVR for each.
 
 **Results:**
@@ -745,7 +750,7 @@ before each strided operation.
 **Experiment 2c — Aliasing folding visualization:**  
 Computed power spectra before and after conv1 stride-2 operation on a natural
 image. Pre-stride spectrum shows energy distributed across frequencies.
-Post-stride spectrum shows that energy has been redistributed — high-frequency
+Post-stride spectrum shows that energy has been redistributed. The high-frequency
 content has folded into lower-frequency bins, the signature of aliasing.
 
 ---
@@ -761,7 +766,7 @@ module, not input to the preceding stride-1 conv).
 
 **Key result:** All 7 layer pairs show p<0.001 in two-sample t-tests, with
 t-statistics ranging from 10.70 to -229.48 in absolute value. The spectral
-differences between the two architectures are not marginal — they are
+differences between the two architectures are not marginal; they are
 unambiguous.
 
 **The counterintuitive finding:** BlurPool pre-blur AVR is higher than ResNet50
@@ -795,7 +800,7 @@ The spectral violation at any single stride layer must propagate through
 50+ nonlinear layers before it affects the softmax output. ReLU activations,
 batch normalization, and residual connections all partially compensate for or
 redistribute spectral artifacts along the way. A linear correlation between
-input-layer AVR and output-layer SIS is not expected theoretically — the
+input-layer AVR and output-layer SIS is not expected theoretically. The
 relationship is mediated by complex nonlinear dynamics. The fact that a
 statistically significant correlation exists at all is the informative result.
 
@@ -813,7 +818,7 @@ anti-aliasing intervention.
 | Prediction agreement | — | **65.4%** |
 
 The 18.9% inference overhead is substantially higher than Zhang's reported
-~3%. This is a hardware effect — on an RTX 4050 Laptop GPU the additional
+~3%. This is a hardware effect. On an RTX 4050 Laptop GPU, the additional
 blur convolutions are proportionally more expensive than on the server-grade
 V100 used in the original paper. On A100-class hardware the overhead would
 be closer to Zhang's figure.
@@ -853,7 +858,7 @@ is the most scientifically interesting result of the project. It suggests that
 during training, BlurPool networks develop a strategy of spectral delegation:
 push high-frequency representational work upstream of the blur filter and rely
 on the blur to enforce Nyquist compliance before downsampling. This is
-rational from an optimization perspective — the blur is a fixed low-pass
+rational from an optimization perspective. The blur is a fixed low-pass
 filter that provides a guaranteed spectral cleanup, so the network can "spend"
 spectral energy freely in the layers preceding it. Whether this learned
 strategy is beneficial or harmful for downstream task performance is an open
@@ -881,8 +886,8 @@ depthwise separable convolutions with different frequency characteristics.
 ConvNeXt uses large-kernel convolutions. Each would be a meaningful extension.
 
 **Intermediate SIS:** We measured SIS only at the output (softmax) level.
-Measuring shift instability of intermediate feature maps directly — rather
-than inferring it from output probability changes — would provide a more
+Measuring shift instability of intermediate feature maps directly rather
+than inferring it from output probability changes. It would provide a more
 precise test of the per-layer AVR hypothesis.
 
 **Hardware timing:** Inference overhead measured on RTX 4050 Laptop GPU.
