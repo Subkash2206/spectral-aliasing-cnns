@@ -34,7 +34,7 @@ BATCH_SIZE = 32
 #   input to capture the pre-blur feature map — the semantic equivalent.
 #
 # Correspondence (from Step 0 diagnostic):
-#   ResNet50 conv1 (stride=2)            ↔  BlurPool maxpool.1 (BlurPool after maxpool)
+#   ResNet50 conv1 (stride=2)            ↔  BlurPool conv1 (identical stride-2 7x7 conv)
 #   ResNet50 layer2.0.conv2 (stride=2)   ↔  BlurPool layer2.0.conv3.0 (BlurPool)
 #   ResNet50 layer2.0.downsample.0       ↔  BlurPool layer2.0.downsample.0 (BlurPool)
 #   ResNet50 layer3.0.conv2 (stride=2)   ↔  BlurPool layer3.0.conv3.0 (BlurPool)
@@ -43,7 +43,7 @@ BATCH_SIZE = 32
 #   ResNet50 layer4.0.downsample.0       ↔  BlurPool layer4.0.downsample.0 (BlurPool)
 
 BLURPOOL_HOOK_LAYERS = [
-    'maxpool.1',              # corresponds to conv1
+    'conv1',                  # stride-2 7x7 conv -- identical to ResNet50, hook directly
     'layer2.0.conv3.0',       # corresponds to layer2.0.conv2
     'layer2.0.downsample.0',  # corresponds to layer2.0.downsample.0
     'layer3.0.conv3.0',       # corresponds to layer3.0.conv2
@@ -54,7 +54,7 @@ BLURPOOL_HOOK_LAYERS = [
 
 # Mapping from BlurPool hook name → canonical ResNet50 layer name (for CSV/plots)
 BLURPOOL_TO_RESNET_NAME = {
-    'maxpool.1':              'conv1',
+    'conv1':                  'conv1',
     'layer2.0.conv3.0':       'layer2.0.conv2',
     'layer2.0.downsample.0':  'layer2.0.downsample.0',
     'layer3.0.conv3.0':       'layer3.0.conv2',

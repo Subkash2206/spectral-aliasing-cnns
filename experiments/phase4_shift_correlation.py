@@ -55,7 +55,7 @@ BATCH_SIZE = 32
 # Hook point mapping (same as Phase 3)
 # ---------------------------------------------------------------------------
 BLURPOOL_HOOK_LAYERS = [
-    'maxpool.1',              # corresponds to conv1
+    'conv1',                  # stride-2 7x7 conv -- identical to ResNet50, hook directly
     'layer2.0.conv3.0',       # corresponds to layer2.0.conv2
     'layer2.0.downsample.0',  # corresponds to layer2.0.downsample.0
     'layer3.0.conv3.0',       # corresponds to layer3.0.conv2
@@ -65,7 +65,7 @@ BLURPOOL_HOOK_LAYERS = [
 ]
 
 BLURPOOL_TO_RESNET_NAME = {
-    'maxpool.1':              'conv1',
+    'conv1':                  'conv1',
     'layer2.0.conv3.0':       'layer2.0.conv2',
     'layer2.0.downsample.0':  'layer2.0.downsample.0',
     'layer3.0.conv3.0':       'layer3.0.conv2',
