@@ -122,7 +122,7 @@ Across **1000 STL10 images**, BlurPool reduces shift instability by **39.8%**, c
 Standard convolutional neural networks perform spatial downsampling via strided
 convolutions without the low-pass filtering that classical sampling theory
 requires. The Nyquist-Shannon theorem states that downsampling by factor *s*
-requires the signal to be bandlimited to frequency π/s before sampling — or
+requires the signal to be bandlimited to frequency π/s before sampling, or
 aliasing will occur. Modern CNNs do not enforce this constraint. Gradient
 descent optimizes for task accuracy, not spectral compliance.
 
@@ -130,13 +130,13 @@ This project asks three precise empirical questions:
 
 1. **How much** spectral energy actually violates the Nyquist condition at each
    stride-2 layer in a trained ResNet50, measured layer by layer?
-2. **Does BlurPool** (Zhang 2019) — the canonical anti-aliasing prescription —
+2. **Does BlurPool** (Zhang 2019) which is the canonical anti-aliasing prescription
    measurably reduce this violation across all stride layers?
 3. **Does the degree of violation** predict how unstable the network's
    predictions are under 1-pixel spatial shifts?
 
 To answer these questions we build a complete spectral analysis pipeline,
-introduce two new metrics — **AVR** and **SIS** — and run a five-phase
+introduce two new metrics: **AVR** and **SIS**, and run a five-phase
 experimental study covering synthetic validation, natural image profiling,
 correlation analysis, and intervention quantification.
 
@@ -779,7 +779,7 @@ distributes its representational burden differently across its depth.
 
 ### Phase 4 — Shift Sensitivity Correlation
 
-**Goal:** Test the central hypothesis — does per-layer AVR predict per-image
+**Goal:** Test the central hypothesis. Does per-layer AVR predict per-image
 behavioral shift instability?
 
 **Setup:** 1,000 paired (AVR, SIS) measurements per image per layer.
@@ -900,19 +900,6 @@ Comparing AVR reduction and SIS improvement across PolyphaseConv, APS
 picture of the design space.
 
 ---
-
-## Citation
-```bibtex@misc{kashyap2026spectral,
-title     = {Measuring Spectral Aliasing in Strided CNNs: From Nyquist
-Violations to Prediction Instability},
-author    = {Kashyap, Subhash},
-year      = {2026},
-note      = {Preprint. Code available at
-https://github.com/Subkash2206/spectral-aliasing-cnns}
-}
-
----
-```
 
 ## References
 
