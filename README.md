@@ -928,20 +928,3 @@ picture of the design space.
    Image Recognition. *CVPR 2016.*
 
 ---
-
-## Acknowledgements
-
-This project was conducted as part of a research internship at the Indian
-Statistical Institute, Bangalore under the supervision of Dr. Saroj K. Meher.
-The author thanks NIT Rourkela for institutional support and the open-source
-community behind PyTorch, timm, and antialiased-cnns.
-
----
-
-<div align="center">
-
-**All 5 experimental phases complete · 15 figures · 6 CSV tables · 9/9 tests passing**
-
-<sub>Built with PyTorch 2.6.0 · CUDA 12.4 · RTX 4050 6GB · NIT Rourkela × ISI Bangalore</sub>
-
-</div>
